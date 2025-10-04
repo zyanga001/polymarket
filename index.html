@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poly平衡资金计算器</title>
+    <style>
+        /* Base and Utility Styles */
+        :root {
+            /* 现代深紫/薄荷绿配色 */
+            --color-primary: #7c3aed; /* Violet 600 */
+            --color-secondary: #059669; /* Emerald 600 */
+            --color-bg: #f9fafb; /* Lighter background for depth */
+            --color-surface: #ffffff;
+            --color-border: #e5e7eb;
+            --color-text: #1f2937;
+            --color-copy: #f59e0b; /* Amber for Copy button */
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 20px 20px 40px; 
+            background-color: var(--color-bg);
+            color: var(--color-text);
+            line-height: 1.6;
+            
+            /* **修改点:** 实现全屏居中 */
+            display: flex;
+            flex-direction: column; /* 垂直堆叠内容块 */
+            justify-content: center; /* 垂直居中内容块 */
+            align-items: center; /* 水平居中内容块 (container) */
+            min-height: 100vh; /* 确保 body 至少占满整个视口高度 */
+            /* 结束修改点 */
+        }
+
+        .container {
+            width: 100%;
+            max-width: 550px; /* 进一步收窄，更紧凑 */
+            margin: 0 auto; /* 确保在 flex 容器内也能保持良好间距 */
+            background-color: var(--color-surface);
+            padding: 25px; /* 略微减少 padding */
+            border-radius: 20px; /* 增加圆角，更圆润 */
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.1), 0 6px 10px -3px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Header and Title */
+        h1 {
+            color: var(--color-primary);
+            text-align: center;
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 20px; /* 减少 margin */
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--color-border);
+        }
+
+        h2 {
+            font-size: 1.3rem;
+            color: var(--color-text);
+            margin-top: 20px; /* 减少 margin */
+            margin-bottom: 10px; /* 减少 margin */
+            text-align: center; /* 居中 */
+        }
+
+        /* --- Input Card Group --- */
+        .input-group {
+            display: grid;
+            /* 默认在窄屏上是两列自适应 */
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 15px; 
+            padding: 15px; /* 减少 padding */
+            border: 1px solid var(--color-border);
+            border-radius: 15px; /* 增加圆角 */
+            background-color: #f7f9fc; /* 浅底色区分 */
+            margin-bottom: 15px; /* 减少 margin */
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        
+        /* 强制在宽屏上显示为四列，实现单行要求 */
+        @media (min-width: 500px) {
+            .input-group {
+                grid-template-columns: 1fr 1fr 1fr 1fr;
+                gap: 10px;
+            }
+        }
+        
+        /* 通用输入项居中 */
+        .input-item {
+            text-align: center; 
+        }
+
+        .input-item label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: #4b5563;
+            font-size: 0.85rem; /* 字体略小，适应紧凑布局 */
+        }
+
+        input[type="number"] {
+            width: 100%;
+            max-width: 100px; /* 限制输入框最大宽度，约 6-8 位数字长度 */
+            padding: 10px 8px; 
+            border: 1px solid var(--color-border);
+            border-radius: 8px; /* 增加圆角 */
+            box-sizing: border-box;
+            font-size: 16px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            text-align: center; /* 输入数字居中显示 */
+            margin: 0 auto; 
+            display: block; 
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+        }
+
+        /* --- Range Control Group (也应用更小的输入框) --- */
+        .range-control-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px; 
+            padding: 15px; 
+            border: 1px solid var(--color-border);
+            border-radius: 15px; 
+            background-color: #f7f9fc; 
+            /* 移除底边距，由父容器 .flex-control-row 管理 */
+            margin-bottom: 0; 
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        .range-control-group .input-item {
+            text-align: center;
+        }
+
+        /* --- New Flex Row for Controls and Buttons --- */
+        .flex-control-row {
+            display: flex;
+            flex-direction: column; /* 默认在窄屏上堆叠 */
+            gap: 15px;
+            margin-bottom: 20px; 
+        }
+        @media (min-width: 500px) {
+            .flex-control-row {
+                flex-direction: row; /* 在桌面端并排 */
+                justify-content: space-between; 
+                align-items: center;
+            }
+            .flex-control-row .range-control-group {
+                /* 允许输入框占据更多空间 */
+                width: 55%; 
+            }
+        }
+
+
+        /* Button Layout */
+        .button-wrapper, .action-bar {
+            display: flex;
+            justify-content: center; /* 核心：按钮组居中 */
+            gap: 15px;
+            margin-bottom: 20px; /* 减少 margin */
+        }
+        
+        /* 针对 action-bar 在新的 flex 容器中的调整 */
+        @media (min-width: 500px) {
+            .action-bar {
+                width: 40%; /* 留出合适的空间给按钮 */
+                /* 按钮偏右对齐 */
+                justify-content: flex-end; 
+                margin-bottom: 0; 
+            }
+        }
+        /* 确保移动端 action-bar 底部无额外间距 */
+        .action-bar {
+            margin-bottom: 0;
+        }
+
+
+        .button-primary {
+            width: 100%;
+            max-width: 250px; 
+            padding: 12px;
+            background-color: var(--color-secondary);
+            color: white;
+            border: none;
+            border-radius: 999px; /* **药丸形状圆角** */
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.1s, box-shadow 0.3s;
+            box-shadow: 0 4px 10px rgba(5, 150, 105, 0.4);
+        }
+        
+        .action-bar .button-primary {
+            max-width: 180px; 
+            padding: 10px; 
+            font-size: 0.95rem;
+            border-radius: 999px; /* **药丸形状圆角** */
+            /* 移除 max-width 限制，让 flex 容器控制宽度 */
+            max-width: none; 
+        }
+
+        .button-primary:hover {
+            background-color: #047857;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(5, 150, 105, 0.5);
+        }
+        .button-primary:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* Copy Button Specific Style */
+        .copy-button {
+            background-color: var(--color-copy); 
+            box-shadow: 0 4px 10px rgba(245, 158, 11, 0.4);
+        }
+        .copy-button:hover {
+            background-color: #d97706;
+            box-shadow: 0 6px 12px rgba(245, 158, 11, 0.5);
+        }
+
+        /* Result Section */
+        .result-section {
+            margin-top: 15px; /* 减少 margin */
+        }
+
+        /* Summary Card */
+        .summary {
+            background-color: #f3e8ff; /* 浅紫色配合新主题色 */
+            padding: 15px; /* 减少 padding */
+            border-radius: 15px; /* 增加圆角 */
+            margin-bottom: 15px; /* 减少 margin */
+            border-left: 5px solid var(--color-primary);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+        .summary p {
+            margin: 6px 0; /* 减少行间距 */
+            font-size: 1rem;
+            display: flex;
+            justify-content: space-between;
+        }
+        .summary strong {
+            color: var(--color-primary);
+            font-weight: 700;
+        }
+
+        .summary hr {
+            border: 0;
+            border-top: 1px dashed #c4b5fd;
+            margin: 10px 0; /* 减少 hr 间距 */
+        }
+
+        /* Allocation Lists */
+        .allocation-list {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px; /* 减少 gap */
+        }
+        @media (min-width: 500px) {
+            .allocation-list {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .group {
+            padding: 15px;
+            border: 1px solid var(--color-border);
+            border-radius: 15px; /* 增加圆角 */
+            background-color: var(--color-surface);
+            box-shadow: 0 1px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        .group h3 {
+            margin-top: 0;
+            color: var(--color-secondary);
+            font-size: 1.05rem;
+            border-bottom: 1px solid var(--color-border);
+            padding-bottom: 8px;
+            margin-bottom: 10px;
+            text-align: center; /* 居中 */
+        }
+
+        .group ul {
+            list-style: none;
+            padding: 0;
+            max-height: 200px; /* 减少最大高度以避免滚动 */
+            overflow-y: auto;
+        }
+
+        .group ul li {
+            /* **修改点:** 增加了水平内边距 (10px)，确保数字与滚动条有充足间隔 */
+            padding: 8px 10px; 
+            font-size: 0.9rem;
+            border-bottom: 1px dashed #f3f4f6;
+            display: flex;
+            justify-content: space-between;
+        }
+        .group ul li:last-child {
+            border-bottom: none;
+        }
+        
+        .error-message {
+            color: #dc2626;
+            font-weight: 600;
+            margin-top: 15px;
+            padding: 12px;
+            background-color: #fee2e2;
+            border: 1px solid #fca5a5;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .highlight-profit {
+            color: var(--color-secondary);
+            font-weight: 700;
+        }
+        .highlight-loss {
+            color: #dc2626;
+            font-weight: 700;
+        }
+
+        .copy-feedback {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: var(--color-secondary);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            z-index: 1000;
+            transition: opacity 0.3s;
+            opacity: 0;
+        }
+        
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Poly平衡资金计算器</h1>
+
+    <!-- 核心参数输入区 (居中卡片, 宽屏四列) -->
+    <div class="input-group">
+        <div class="input-item">
+            <label for="prob1">方向一概率 (%)</label>
+            <!-- 概率步进值改为 1 -->
+            <input type="number" id="prob1" placeholder="例如: 54" min="0" step="1">
+        </div>
+        <div class="input-item">
+            <label for="prob2">方向二概率 (%)</label>
+            <!-- 概率步进值改为 1 -->
+            <input type="number" id="prob2" placeholder="例如: 47" min="0" step="1">
+        </div>
+        <div class="input-item">
+            <label for="accountCount">账号总数</label>
+            <input type="number" id="accountCount" value="20" min="2" step="1">
+        </div>
+        <div class="input-item">
+            <label for="averageAmount">每户平均投入</label>
+            <input type="number" id="averageAmount" value="2.5" min="0.01" step="0.01">
+        </div>
+    </div>
+    
+    <!-- 初始计算按钮 (居中) -->
+    <div class="button-wrapper">
+        <button class="button-primary" onclick="calculateStrategy()">开始计算</button>
+    </div>
+    
+    <div id="error-output" class="error-message" style="display: none;"></div>
+
+    <div id="result-output" class="result-section" style="display: none;">
+        
+        <h2>📊 资金平衡摘要</h2>
+        <div class="summary" id="summary-data"></div>
+
+        <!-- 随机范围控件和按钮被整合到 .flex-control-row 中 -->
+        <div class="flex-control-row">
+            <!-- 随机范围控件 (输入框偏左) -->
+            <div class="range-control-group">
+                <div class="input-item">
+                    <label for="minAmount">随机最小值</label>
+                    <!-- 随机值步进值改为 0.1 -->
+                    <input type="number" id="minAmount" placeholder="默认: 1.5" min="0.01" step="0.1">
+                </div>
+                <div class="input-item">
+                    <label for="maxAmount">随机最大值</label>
+                    <!-- 随机值步进值改为 0.1 -->
+                    <input type="number" id="maxAmount" placeholder="默认: 4.0" min="0.01" step="0.1">
+                </div>
+            </div>
+
+            <!-- 重新计算和复制按钮 (按钮偏右) -->
+            <div class="action-bar">
+                 <button class="button-primary" onclick="calculateStrategy()">重新计算</button>
+                 <button class="button-primary copy-button" onclick="copyAllAllocations()">一键复制</button>
+            </div>
+        </div>
+
+        <h2>💰 随机资金分配详情</h2>
+        <div class="allocation-list">
+            <div class="group">
+                <h3 id="group1-title">方向一 (P1) 分配</h3>
+                <ul id="allocation-list-1"></ul>
+            </div>
+            <div class="group">
+                <h3 id="group2-title">方向二 (P2) 分配</h3>
+                <ul id="allocation-list-2"></ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="copy-feedback" class="copy-feedback">已成功复制到剪贴板！</div>
+
+<script>
+/**
+ * 显示复制成功反馈
+ */
+function showCopyFeedback() {
+    const feedback = document.getElementById('copy-feedback');
+    feedback.style.opacity = '1';
+    setTimeout(() => {
+        feedback.style.opacity = '0';
+    }, 1500);
+}
+
+/**
+ * 将所有分配金额（列表中的数字）整理并复制到剪贴板。
+ */
+function copyAllAllocations() {
+    const list1 = document.getElementById('allocation-list-1');
+    const list2 = document.getElementById('allocation-list-2');
+    
+    let allAllocations = [];
+
+    // 提取方向一数据
+    if (list1.children.length > 0 && list1.children[0].textContent.includes('投入:')) {
+        Array.from(list1.children).forEach(li => {
+            const amountText = li.querySelector('span').textContent;
+            allAllocations.push(amountText.replace(/[^0-9.]/g, '')); // 只保留数字和小数点
+        });
+    }
+
+    // 提取方向二数据
+     if (list2.children.length > 0 && list2.children[0].textContent.includes('投入:')) {
+        Array.from(list2.children).forEach(li => {
+            const amountText = li.querySelector('span').textContent;
+            allAllocations.push(amountText.replace(/[^0-9.]/g, '')); // 只保留数字和小数点
+        });
+    }
+    
+    if (allAllocations.length === 0) {
+        document.getElementById('error-output').textContent = '没有生成的资金分配数据可供复制。请先运行计算。';
+        document.getElementById('error-output').style.display = 'block';
+        return;
+    }
+
+    const dataToCopy = allAllocations.join('\n'); // 每行一个金额
+
+    // 使用 document.execCommand('copy') 作为兼容性更好的复制方法
+    const tempInput = document.createElement('textarea');
+    tempInput.value = dataToCopy;
+    tempInput.setAttribute('readonly', '');
+    tempInput.style.position = 'absolute';
+    tempInput.style.left = '-9999px';
+    document.body.appendChild(tempInput);
+    tempInput.select();
+
+    try {
+        const successful = document.execCommand('copy');
+        document.body.removeChild(tempInput);
+        if (successful) {
+            showCopyFeedback();
+        } else {
+            document.getElementById('error-output').textContent = '复制到剪贴板失败，请手动复制。';
+            document.getElementById('error-output').style.display = 'block';
+        }
+    } catch (err) {
+        document.body.removeChild(tempInput);
+        console.error('复制失败:', err);
+        document.getElementById('error-output').textContent = '复制到剪贴板失败，请手动复制。';
+        document.getElementById('error-output').style.display = 'block';
+    }
+}
+
+/**
+ * 核心随机精确分配函数
+ */
+function randomizeAllocation(count, targetSum, minAmount, maxAmount, decimalPlaces = 2) {
+    if (count <= 0 || targetSum <= 0) return [];
+    
+    const multiplier = Math.pow(10, decimalPlaces);
+    
+    // 转换为整数分 (cents) 进行精确计算
+    const targetSumCents = Math.round(targetSum * multiplier);
+    const minAmountCents = Math.round(minAmount * multiplier);
+    const maxAmountCents = Math.round(maxAmount * multiplier);
+
+    // 1. Feasibility Check (in cents) - 检查总投入是否在可行范围内
+    const minTotalCents = count * minAmountCents;
+    const maxTotalCents = count * maxAmountCents;
+    
+    if (targetSumCents < minTotalCents) {
+        throw new Error(`总投入 ${targetSum.toFixed(2)} 太低。${count} 户的最低总投入需要 ${(minTotalCents/multiplier).toFixed(2)} (每户最小值 ${minAmount.toFixed(2)})。`);
+    }
+    if (targetSumCents > maxTotalCents) {
+        throw new Error(`总投入 ${targetSum.toFixed(2)} 太高。${count} 户的最高总投入只能是 ${(maxTotalCents/multiplier).toFixed(2)} (每户最大值 ${maxAmount.toFixed(2)})。`);
+    }
+    
+    // 2. Initialize allocations with minimums and calculate remaining sum
+    let currentAllocationsCents = Array(count).fill(minAmountCents);
+    let remainingSumCents = targetSumCents - minTotalCents;
+    
+    // 3. Iteratively distribute the remaining sum to accounts, respecting the max limit
+    let attempts = 0;
+    
+    // 使用迭代确保分配均匀且精确
+    while (remainingSumCents > 0 && attempts < count * 30) { 
+        attempts++;
+        const index = Math.floor(Math.random() * count);
+        
+        const canIncrementBy = maxAmountCents - currentAllocationsCents[index]; 
+        
+        if (canIncrementBy > 0) {
+            // 随机增量: 0 到 canIncrementBy 之间，但不能超过 remainingSumCents
+            let increment = Math.floor(Math.random() * (Math.min(canIncrementBy, remainingSumCents) + 1));
+            
+            // 确保至少增加 1 分
+            if (increment === 0 && remainingSumCents > 0 && canIncrementBy > 0) {
+                 increment = Math.min(1, remainingSumCents, canIncrementBy);
+            }
+
+            if (increment > 0) {
+                currentAllocationsCents[index] += increment;
+                remainingSumCents -= increment;
+            }
+        }
+    }
+    
+    // 4. Fallback for the final few cents (due to random distribution inefficiency)
+    if (remainingSumCents > 0) {
+        for (let i = 0; i < count && remainingSumCents > 0; i++) {
+            const canIncrementBy = maxAmountCents - currentAllocationsCents[i];
+            const increment = Math.min(remainingSumCents, canIncrementBy);
+            if (increment > 0) {
+                currentAllocationsCents[i] += increment;
+                remainingSumCents -= increment;
+            }
+        }
+    }
+
+    // 5. Convert back to floating point amounts and shuffle
+    const finalAllocations = currentAllocationsCents.map(cents => cents / multiplier);
+    finalAllocations.sort(() => Math.random() - 0.5);
+
+    return finalAllocations;
+}
+
+/**
+ * 主计算函数：执行分组、资金平衡计算和随机分配
+ */
+function calculateStrategy() {
+    const errorOutput = document.getElementById('error-output');
+    const resultOutput = document.getElementById('result-output');
+    errorOutput.style.display = 'none';
+    
+    // 确保主计算按钮不再影响布局
+    const mainButtonWrapper = document.querySelector('.button-wrapper');
+    if (mainButtonWrapper) {
+        // 恢复默认居中样式，因为现在所有元素都在居中容器内
+        mainButtonWrapper.style.maxWidth = ''; 
+        mainButtonWrapper.style.margin = '';
+    }
+
+
+    try {
+        // 1. 获取输入参数
+        const P1_percent = parseFloat(document.getElementById('prob1').value);
+        const P2_percent = parseFloat(document.getElementById('prob2').value);
+        // 读取带有默认值的输入
+        const N = parseInt(document.getElementById('accountCount').value || 20);
+        const avgAmount = parseFloat(document.getElementById('averageAmount').value || 2.5);
+        
+        // 获取随机分配范围
+        let minAmount = parseFloat(document.getElementById('minAmount').value);
+        let maxAmount = parseFloat(document.getElementById('maxAmount').value);
+
+        minAmount = isNaN(minAmount) ? 1.5 : minAmount;
+        maxAmount = isNaN(maxAmount) ? 4.0 : maxAmount;
+
+        // 基础校验
+        if (isNaN(P1_percent) || isNaN(P2_percent) || P1_percent === "" || P2_percent === "") {
+            throw new Error('请填写两个方向的概率。');
+        }
+        if (P1_percent <= 0 || P2_percent <= 0 || N <= 1 || avgAmount <= 0) {
+            throw new Error('概率必须大于 0%，账号总数需大于 1，平均投入需大于 0。');
+        }
+        if (minAmount >= maxAmount || minAmount <= 0) {
+            throw new Error('随机投入范围设置无效: 最小值必须小于最大值且大于 0。');
+        }
+
+        const P1 = P1_percent / 100;
+        const P2 = P2_percent / 100;
+        const T = parseFloat((N * avgAmount).toFixed(2)); // 总投入，精确到分
+
+        // 2. 计算账号数量分配 (基于概率比例)
+        const totalP = P1 + P2;
+        let N1 = Math.round(N * P1 / totalP);
+        let N2 = N - N1;
+        
+        // 确保每个方向至少有 1 个账号参与对冲
+        if (N1 < 1) { N1 = 1; N2 = N - 1; }
+        if (N2 < 1) { N2 = 1; N1 = N - 1; }
+        
+        if (N1 === 0 || N2 === 0) {
+            throw new Error('账号分配错误，请检查概率值是否过分偏离导致无法分配到两个方向。');
+        }
+
+        // 3. 计算隐含赔率 R (R = 1/P - 1)
+        const R1 = 1 / P1 - 1;
+        const R2 = 1 / P2 - 1;
+
+        // 4. 计算最小化损失的资金总额分配 A1 和 A2
+        const totalFactor = R1 + R2 + 2;
+        const A1_raw = (T * (R2 + 1)) / totalFactor;
+        const A2_raw = (T * (R1 + 1)) / totalFactor;
+
+        // 转换为精确到分的金额 (toFixed(2))
+        let A1 = parseFloat(A1_raw.toFixed(2));
+        let A2 = parseFloat(A2_raw.toFixed(2));
+        
+        // 确保 A1 + A2 严格等于 T (处理浮点数误差)
+        const A_sum_check = parseFloat((A1 + A2).toFixed(2));
+        const totalDifference = parseFloat((T - A_sum_check).toFixed(2));
+        if (totalDifference !== 0) {
+            A1 = parseFloat((A1 + totalDifference).toFixed(2));
+        }
+
+        // 5. 盈亏计算 (验证最小化损失)
+        const profit1 = A1 * R1;
+        const loss2 = A2;
+        const netG1 = parseFloat((profit1 - loss2).toFixed(2)); 
+
+        const profit2 = A2 * R2;
+        const loss1 = A1;
+        const netG2 = parseFloat((profit2 - loss1).toFixed(2)); 
+        
+        // 6. 核心：随机精确资金分配 (传递新的范围参数)
+        const allocations1 = N1 > 0 ? randomizeAllocation(N1, A1, minAmount, maxAmount) : [];
+        const allocations2 = N2 > 0 ? randomizeAllocation(N2, A2, minAmount, maxAmount) : [];
+
+        // 7. 渲染结果
+        
+        // 渲染摘要 (简洁版本)
+        const summaryData = document.getElementById('summary-data');
+        
+        // 逻辑修正：净收益 >= 0 为盈利 (绿色/highlight-profit)，< 0 为亏损 (红色/highlight-loss)
+        const G1_class = netG1 >= 0 ? 'highlight-profit' : 'highlight-loss';
+        const G2_class = netG2 >= 0 ? 'highlight-profit' : 'highlight-loss';
+
+        summaryData.innerHTML = `
+            <p><strong>总投入:</strong> <span>${T.toFixed(2)} (${N} 户)</span></p>
+            <hr>
+            <p><strong>方向一 (${P1_percent}%):</strong> <span>${N1} 户，目标投入 <strong style="color:var(--color-secondary);">${A1}</strong></span></p>
+            <p><strong>方向二 (${P2_percent}%):</strong> <span>${N2} 户，目标投入 <strong style="color:var(--color-secondary);">${A2}</strong></span></p>
+            <hr>
+            <p><strong>若方向一赢:</strong> <span class="${G1_class}">${netG1}</span></p>
+            <p><strong>若方向二赢:</strong> <span class="${G2_class}">${netG2}</span></p>
+        `;
+
+        // 渲染列表
+        const renderList = (ulId, allocations, P_percent, A_total) => {
+            const ul = document.getElementById(ulId);
+            ul.innerHTML = '';
+            document.getElementById(ulId === 'allocation-list-1' ? 'group1-title' : 'group2-title').textContent = 
+                `方向 (${P_percent}%) (总和: ${A_total})`;
+
+            if (allocations.length === 0) {
+                 ul.innerHTML = '<li>该方向账号数为 0，没有资金分配。</li>';
+                 return;
+            }
+
+            allocations.forEach((amount, index) => {
+                ul.innerHTML += `<li>账号 ${index + 1} 投入: <span>${amount.toFixed(2)}</span></li>`;
+            });
+        };
+
+        renderList('allocation-list-1', allocations1, P1_percent, A1);
+        renderList('allocation-list-2', allocations2, P2_percent, A2);
+
+        resultOutput.style.display = 'block';
+
+    } catch (e) {
+        errorOutput.textContent = `计算错误：${e.message}`;
+        errorOutput.style.display = 'block';
+    }
+}
+</script>
+
+</body>
+</html>
