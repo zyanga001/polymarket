@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Polymarket Tools · Floating Island</title>
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Fonts -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <!-- Ethers -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['IBM Plex Sans', 'ui-sans-serif', 'system-ui'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular'],
+          },
+          colors: {
+            ink: '#0b1220',
+            muted: '#5b6476',
+            line: '#e6ebf2',
+            fog: '#f7fafc',
+            mint: '#10b981',
+            mint2: '#059669',
+            sky: '#0ea5e9',
+            sky2: '#0284c7',
+            rose: '#f43f5e'
+          },
+          boxShadow: {
+            'soft': '0 14px 44px rgba(11,18,32,0.10)',
+            'soft2': '0 10px 28px rgba(11,18,32,0.08)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    :root{
+      --bg: #f7fafc;
+      --ink: #0b1220;
+      --muted: #5b6476;
+      --line: #e6ebf2;
+      --mint: #10b981;
+      --mint2: #059669;
+      --sky: #0ea5e9;
+      --rose: #f43f5e;
+    }
+
+    body{
+      background:
+        radial-gradient(900px 520px at 15% -10%, rgba(14,165,233,.10), transparent 60%),
+        radial-gradient(900px 520px at 95% 0%, rgba(16,185,129,.10), transparent 60%),
+        linear-gradient(180deg, #ffffff, var(--bg));
+      color: var(--ink);
+    }
+
+    /* Subtle grain for freshness (very light) */
+    .grain::before{
+      content:"";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.08'/%3E%3C/svg%3E");
+      opacity: .12;
+      mix-blend-mode: overlay;
+    }
+
+    /* Clean scrollbar */
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(11,18,32,.18); border-radius: 999px; border: 2px solid rgba(255,255,255,.75); }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(11,18,32,.28); }
+
+    /* Floating Island */
+    .island{
+      border: 1px solid rgba(230,235,242,.85);
+      background: rgba(255,255,255,.78);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      box-shadow: 0 14px 44px rgba(11,18,32,0.10);
+    }
+    .island-inner{
+      border: 1px solid rgba(230,235,242,.9);
+      background: rgba(255,255,255,.72);
+    }
+
+    /* Island expand animation (height) */
+    #islandPanel{
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height .26s cubic-bezier(.2,.9,.2,1), opacity .2s ease, transform .2s ease;
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+    .island-open #islandPanel{
+      max-height: 560px;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Focus ring */
+    .ringy:focus{
+      outline: none;
+      box-shadow: 0 0 0 4px rgba(14,165,233,.16);
+      border-color: rgba(14,165,233,.55) !important;
+      background: rgba(255,255,255,.9) !important;
+    }
+
+    /* Buttons */
+    .btn{
+      transition: transform .08s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease, opacity .2s ease;
+    }
+    .btn:active{ transform: translateY(1px) scale(.99); }
+    .btn-primary{
+      background: linear-gradient(180deg, rgba(14,165,233,1), rgba(2,132,199,1));
+      box-shadow: 0 12px 28px rgba(14,165,233,.20);
+      color: white;
+    }
+    .btn-primary:hover{ box-shadow: 0 14px 34px rgba(14,165,233,.24); }
+    .btn-mint{
+      background: linear-gradient(180deg, rgba(16,185,129,1), rgba(5,150,105,1));
+      box-shadow: 0 12px 28px rgba(16,185,129,.18);
+      color: white;
+    }
+    .btn-mint:hover{ box-shadow: 0 14px 34px rgba(16,185,129,.22); }
+    .btn-ghost{
+      background: rgba(255,255,255,.72);
+      border: 1px solid rgba(230,235,242,.95);
+      color: rgba(11,18,32,.72);
+    }
+    .btn-ghost:hover{
+      border-color: rgba(14,165,233,.35);
+      background: rgba(255,255,255,.85);
+    }
+
+    /* Market items */
+    .mitem{
+      border: 1px solid rgba(230,235,242,.95);
+      background: rgba(255,255,255,.74);
+      transition: transform .12s ease, background .12s ease, border-color .12s ease;
+    }
+    .mitem:hover{
+      transform: translateY(-1px);
+      background: rgba(14,165,233,.06);
+      border-color: rgba(14,165,233,.30);
+    }
+    .mitem.selected{
+      background: rgba(16,185,129,.08);
+      border-color: rgba(16,185,129,.40);
+      box-shadow: 0 0 0 3px rgba(16,185,129,.10);
+    }
+    .mitem.disabled{ opacity:.5; filter: grayscale(1); pointer-events:none; }
+
+    .badge{
+      border: 1px solid rgba(230,235,242,.95);
+      background: rgba(255,255,255,.75);
+    }
+    .badge-yes{ border-color: rgba(16,185,129,.25); background: rgba(16,185,129,.10); color: rgba(5,150,105,1); }
+    .badge-no{ border-color: rgba(244,63,94,.22); background: rgba(244,63,94,.08); color: rgba(225,29,72,1); }
+
+    /* Toast */
+    #toast{
+      transform: translateY(18px);
+      opacity: 0;
+      transition: opacity .22s ease, transform .22s ease;
+    }
+    #toast.show{
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    /* Details arrow */
+    details > summary { list-style: none; cursor: pointer; }
+    details > summary::-webkit-details-marker { display:none; }
+  </style>
+</head>
+
+<body class="grain font-sans">
+  <!-- Top floating island -->
+  <div class="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[min(980px,calc(100%-24px))]">
+    <div id="island" class="island rounded-2xl">
+      <!-- Collapsed bar -->
+      <div id="islandBar" class="px-4 sm:px-5 py-3 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0"
+               style="background: radial-gradient(circle at 30% 30%, rgba(14,165,233,.18), transparent 55%), rgba(11,18,32,.04); border:1px solid rgba(230,235,242,.95);">
+            <i class="fa-solid fa-cube text-[18px]" style="color: var(--sky);"></i>
+          </div>
+
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <div class="text-[13px] sm:text-[14px] font-semibold text-[rgba(11,18,32,.86)] leading-tight">
+                Polymarket Tools
+              </div>
+              <span class="text-[10px] uppercase tracking-[.16em] text-[rgba(11,18,32,.42)]">Floating Island</span>
+            </div>
+
+            <div class="text-[11px] text-[rgba(11,18,32,.55)] mt-0.5 flex items-center gap-2 flex-wrap">
+              <span class="badge rounded-full px-2 py-0.5">
+                <span class="inline-flex items-center gap-1">
+                  <span id="chipDot" class="inline-block w-2 h-2 rounded-full" style="background: rgba(11,18,32,.25);"></span>
+                  <span class="font-medium">Gamma</span>
+                  <span id="chipApi" class="font-semibold">—</span>
+                </span>
+              </span>
+
+              <span class="badge rounded-full px-2 py-0.5 hidden sm:inline-flex items-center gap-2">
+                <i class="fa-solid fa-signal text-[10px] opacity-60"></i>
+                <span class="font-medium">RPC</span>
+                <span id="chipRpc" class="font-semibold font-mono">polygon-rpc.com</span>
+              </span>
+
+              <span class="badge rounded-full px-2 py-0.5 inline-flex items-center gap-2">
+                <i class="fa-solid fa-lock text-[10px] opacity-60"></i>
+                <span class="font-medium">Market</span>
+                <span id="chipMarket" class="font-semibold">—</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+          <button id="btnOpen" class="btn btn-ghost rounded-xl px-3 py-2 text-[12px] font-semibold inline-flex items-center gap-2">
+            <i class="fa-solid fa-sliders"></i>
+            控制台
+          </button>
+
+          <button id="balanceBtnTop" onclick="fetchBalances()" class="btn btn-mint rounded-xl px-3 py-2 text-[12px] font-semibold inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+            <i class="fa-solid fa-magnifying-glass-chart"></i>
+            查询链上
+          </button>
+
+          <a href="https://polymarket.com" target="_blank" class="btn btn-ghost rounded-xl px-3 py-2 text-[12px] font-semibold inline-flex items-center gap-2">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i>
+            官网
+          </a>
+        </div>
+      </div>
+
+      <!-- Expanded panel -->
+      <div id="islandPanel" class="px-4 sm:px-5 pb-5">
+        <div class="mt-3 grid grid-cols-1 lg:grid-cols-12 gap-3">
+          <!-- Event -->
+          <div class="lg:col-span-6 island-inner rounded-2xl p-4">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <div class="text-[10px] uppercase tracking-[.18em] text-[rgba(11,18,32,.45)]">Event</div>
+                <div class="text-[13px] font-semibold text-[rgba(11,18,32,.86)] mt-1">解析事件</div>
+                <div class="text-[11px] text-[rgba(11,18,32,.55)] mt-1">输入事件链接，自动获取 markets 与 Token IDs。</div>
+              </div>
+              <button onclick="collapseEventRow()" class="btn btn-ghost rounded-xl px-3 py-2 text-[11px] font-semibold">
+                收起
+              </button>
+            </div>
+
+            <div id="eventRow" class="mt-3">
+              <div class="flex flex-col sm:flex-row gap-2">
+                <div class="flex-1 relative">
+                  <div class="absolute left-3 top-1/2 -translate-y-1/2 text-[rgba(11,18,32,.35)]">
+                    <i class="fa-solid fa-link"></i>
+                  </div>
+                  <input id="eventUrl" type="text"
+                    placeholder="https://polymarket.com/event/..."
+                    class="ringy w-full pl-10 pr-3 py-2.5 rounded-xl border border-[rgba(230,235,242,.95)] bg-white/70 text-[12px] placeholder:text-[rgba(11,18,32,.35)]" />
+                </div>
+                <button id="searchBtn" onclick="fetchData()"
+                  class="btn btn-primary rounded-xl px-4 py-2.5 text-[12px] font-semibold inline-flex items-center gap-2">
+                  <i class="fa-solid fa-wand-magic-sparkles"></i>
+                  解析
+                </button>
+              </div>
+
+              <div id="loader" class="hidden mt-3 rounded-xl border border-[rgba(230,235,242,.95)] bg-white/60 px-3 py-2">
+                <div class="flex items-center gap-2">
+                  <i class="fa-solid fa-circle-notch fa-spin" style="color: var(--sky);"></i>
+                  <div class="text-[11px] text-[rgba(11,18,32,.60)] font-semibold" id="loaderText">请求中…</div>
+                </div>
+              </div>
+
+              <div id="errorMsg" class="hidden mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2">
+                <div class="flex items-start gap-2">
+                  <i class="fa-solid fa-circle-exclamation text-rose-600 mt-0.5"></i>
+                  <div class="flex-1">
+                    <div class="text-[12px] font-semibold text-rose-700">解析失败</div>
+                    <div id="errorText" class="text-[11px] text-rose-700/80 break-words mt-1"></div>
+                    <button onclick="copyDiagnostics()" class="mt-2 btn btn-ghost rounded-lg px-3 py-1.5 text-[11px] font-semibold" style="border-color: rgba(244,63,94,.25);">
+                      复制诊断信息
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div id="eventMini" class="hidden mt-3 rounded-xl border border-[rgba(230,235,242,.95)] bg-white/70 px-3 py-2">
+                <div class="text-[10px] uppercase tracking-[.18em] text-[rgba(11,18,32,.45)]">Current</div>
+                <div class="mt-1 text-[12px] font-semibold text-[rgba(11,18,32,.84)] line-clamp-2" id="eventTitleMini">—</div>
+                <div class="mt-1 text-[11px] text-[rgba(11,18,32,.55)]">
+                  Event ID: <span class="font-mono" id="eventIdMini">—</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Market -->
+          <div class="lg:col-span-6 island-inner rounded-2xl p-4">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <div class="text-[10px] uppercase tracking-[.18em] text-[rgba(11,18,32,.45)]">Market</div>
+                <div class="text-[13px] font-semibold text-[rgba(11,18,32,.86)] mt-1">选择市场</div>
+                <div class="text-[11px] text-[rgba(11,18,32,.55)] mt-1">鼠标悬停岛屿展开，在此完成选择与复制 TokenIDs。</div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="resetSelection()" class="btn btn-ghost rounded-xl px-3 py-2 text-[11px] font-semibold">
+                  重选
+                </button>
+                <button onclick="copySelectedTokensAll()" class="btn btn-ghost rounded-xl px-3 py-2 text-[11px] font-semibold">
+                  复制全部
+                </button>
+              </div>
+            </div>
+
+            <div class="mt-3">
+              <div class="flex items-center gap-2">
+                <div class="flex-1 relative">
+                  <div class="absolute left-3 top-1/2 -translate-y-1/2 text-[rgba(11,18,32,.35)]">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                  </div>
+                  <input id="marketSearch" type="text" placeholder="Search markets…"
+                    class="ringy w-full pl-10 pr-3 py-2.5 rounded-xl border border-[rgba(230,235,242,.95)] bg-white/70 text-[12px] placeholder:text-[rgba(11,18,32,.35)]"
+                    oninput="renderMarketsList()" />
+                </div>
+                <span class="badge rounded-full px-2 py-1 text-[10px] font-semibold text-[rgba(11,18,32,.60)]">
+                  <span id="marketCount">0</span>
+                </span>
+              </div>
+
+              <div id="marketsContainer" class="mt-3 space-y-2 max-h-[240px] overflow-auto pr-1">
+                <div class="text-center text-[12px] text-[rgba(11,18,32,.45)] py-8">先解析事件</div>
+              </div>
+
+              <div id="tokenMiniPanel" class="mt-3 hidden rounded-xl border border-[rgba(230,235,242,.95)] bg-white/70 p-3">
+                <div class="flex items-center justify-between">
+                  <div class="text-[10px] uppercase tracking-[.18em] text-[rgba(11,18,32,.45)]">Token IDs</div>
+                  <button onclick="copySelectedTokensAll()" class="btn btn-ghost rounded-lg px-3 py-1.5 text-[11px] font-semibold">
+                    复制全部
+                  </button>
+                </div>
+                <div id="tokenMiniList" class="mt-2 space-y-2"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tip line -->
+        <div class="mt-3 text-[11px] text-[rgba(11,18,32,.50)] flex items-center justify-between flex-wrap gap-2">
+          <div class="inline-flex items-center gap-2">
+            <i class="fa-regular fa-lightbulb opacity-70"></i>
+            <span>提示：桌面端悬停展开；移动端点击「控制台」展开。</span>
+          </div>
+          <div class="font-mono opacity-70">Proxy: polymarket.zyanga001.workers.dev</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <main class="pt-[130px] sm:pt-[140px] pb-16">
+    <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+      <!-- Address + Config -->
+      <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-8">
+          <div class="rounded-3xl border border-[rgba(230,235,242,.95)] bg-white/70 shadow-soft2 p-5 sm:p-6">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="text-[10px] uppercase tracking-[.18em] text-[rgba(11,18,32,.45)]">Addresses</div>
+                <div class="text-[16px] font-semibold text-[rgba(11,18,32,.86)] mt-1">目标地址列表</div>
+                <div class="text-[11px] text-[rgba(11,18,32,.55)] mt-1">每行一个地址。支持去重与清理空行。</div>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <span class="badge rounded-full px-2 py-1 text-[10px] font-semibold text-[rgba(11,18,32,.60)]">
+                  输入 <span id="addrCountIn" class="font-mono">0</span>
+                </span>
+                <span class="badge rounded-full px-2 py-1 text-[10px] font-semibold text-[rgba(11,18,32,.60)]">
+                  去重 <span id="addrCountUniq" class="font-mono">0</span>
+                </span>
+              </div>
+            </div>
+
+            <textarea id="addressList" placeholder="0x123...\n0x456...\n0x789..."
+              class="ringy mt-4 w-full min-h-[320px] px-4 py-4 rounded-2xl border border-[rgba(230,235,242,.95)] bg-white/70 text-[12px] font-mono text-[rgba(11,18,32,.78)] placeholder:text-[rgba(11,18,32,.35)]"
+              oninput="refreshAddressStats()"></textarea>
+
+            <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
+              <div class="text-[11px] text-[rgba(11,18,32,.55)]">
+                将查询 pairs：<span class="font-mono font-semibold" id="pairsHint">—</span>
+                <span class="ml-2 opacity-70" id="batchHint"></span>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <button class="btn btn-ghost rounded-xl px-3 py-2 text-[12px] font-semibold" onclick="dedupeAddresses()">
+                  去重
+                </button>
+                <button class="btn btn-ghost rounded-xl px-3 py-2 text-[12px] font-semibold" onclick="trimAddresses()">
+                  清理
+                </button>
+                <button class="btn btn-ghost rounded-xl px-3 py-2 text-[12px] font-semibold" onclick="clearAddresses()"
+                        style="border-color: rgba(244,63,94,.18);">
+                  清空
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="lg:col-span-4">
+          <div class="rounded-3xl border border-[rgba(230,235,242,.95)] bg-white/70 shadow-soft2 p-5 sm:p-6">
+            <div class="text-[10px] uppercase tracking-[.18em] text-[rgba(11,18,32,.45)]">Chain Config</div>
+            <div class="text-[16px] font-semibold text-[rgba(11,18,32,.86)] mt-1">链上配置</div>
+            <div class="text-[11px] text-[rgba(11,18,32,.55)] mt-1">默认 Polygon。可手动替换 RPC。</div>
+
+            <div class="mt-4 space-y-3">
+              <div>
+                <label class="text-[11px] font-semibold text-[rgba(11,18,32,.60)]">Polygon RPC</label>
+                <input id="rpcUrl" type="text" value="https://polygon-rpc.com"
+                  class="ringy mt-1 w-full px-3 py-2.5 rounded-xl border border-[rgba(230,235,242,.95)] bg-white/70 text-[12px] font-mono"
+                  oninput="syncRpcChip()" />
+              </div>
+
+              <div>
+                <label class="text-[11px] font-semibold text-[rgba(11,18,32,.60)]">CTF Exchange</label>
+                <input id="ctfAddress" type="text" value="0x4d97dcd97ec945f40cf65f87097ace5ea0476045"
+                  class="ringy mt-1 w-full px-3 py-2.5 rounded-xl border border-[rgba(230,235,242,.95)] bg-white/70 text-[12px] font-mono" />
+              </div>
+            </div>
+
+            <div class="mt-4 rounded-2xl border border-[rgba(230,235,242,.95)] bg-white/60 p-4 text-[11px] text-[rgba(11,18,32,.55)] leading-relaxed">
+              <div class="font-semibold text-[rgba(11,18,32,.78)]">分批规则</div>
+              <div class="mt-1">
+                每次调用最大 <span class="font-mono font-semibold">MAX_PAIRS = 400</span>。<br/>
+                地址数 × Token 数 超过阈值会自动分批读取。
+              </div>
+            </div>
+
+            <button id="balanceBtnSide" onclick="fetchBalances()" class="btn btn-mint w-full mt-4 rounded-2xl px-4 py-3 text-[13px] font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+              <i class="fa-solid fa-magnifying-glass-chart"></i>
+              查询链上数据
+            </button>
+
+            <div id="balanceLoader" class="hidden mt-3 rounded-2xl border border-[rgba(230,235,242,.95)] bg-white/60 px-4 py-3">
+              <div class="flex items-center gap-3">
+                <div class="animate-spin rounded-full h-5 w-5 border-2 border-[rgba(11,18,32,.16)] border-t-[rgba(16,185,129,.95)]"></div>
+                <div class="text-[12px] font-semibold text-[rgba(11,18,32,.66)]">正在读取链上数据…</div>
+              </div>
+            </div>
+
+            <div id="balanceError" class="hidden mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3">
+              <div class="flex items-start gap-2">
+                <i class="fa-solid fa-circle-exclamation text-rose-600 mt-0.5"></i>
+                <div class="flex-1">
+                  <div class="text-[12px] font-semibold text-rose-700">链上查询失败</div>
+                  <div id="balanceErrorText" class="text-[11px] text-rose-700/80 break-words mt-1"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Results -->
+      <section id="resultsArea" class="hidden mt-6">
+        <div id="balanceResults" class="rounded-3xl border border-[rgba(230,235,242,.95)] bg-white/70 shadow-soft2 overflow-hidden"></div>
+      </section>
+
+      <!-- Footer -->
+      <div class="mt-10 text-center text-[11px] text-[rgba(11,18,32,.45)]">
+        Token ID 来源：Polymarket Gamma · 持仓来源：Polygon 链上读取
+      </div>
+    </div>
+  </main>
+
+  <!-- Toast -->
+  <div class="fixed bottom-6 right-6 z-[999]">
+    <div id="toast" class="island rounded-2xl px-4 py-3 flex items-center gap-3">
+      <div class="w-8 h-8 rounded-2xl flex items-center justify-center"
+           style="background: rgba(14,165,233,.12); border: 1px solid rgba(14,165,233,.22);">
+        <i class="fa-solid fa-check" style="color: var(--sky);"></i>
+      </div>
+      <div id="toastMsg" class="text-[12px] font-semibold text-[rgba(11,18,32,.76)]">完成</div>
+    </div>
+  </div>
+
+  <script>
+    // =====================
+    // Config
+    // =====================
+    const WORKER_PROXY = "https://polymarket.zyanga001.workers.dev/";
+    const ABI = ["function balanceOfBatch(address[] accounts, uint256[] ids) view returns (uint256[])"];
+    const DECIMALS = 6;
+    const MAX_PAIRS = 400;
+
+    // =====================
+    // State
+    // =====================
+    let marketsCache = [];
+    let selectedMarketIndex = null;
+    let marketLocked = false;
+    let latestReport = null;
+
+    // =====================
+    // Island behavior: hover (desktop) + click (mobile)
+    // =====================
+    const island = document.getElementById('island');
+    const btnOpen = document.getElementById('btnOpen');
+    const islandBar = document.getElementById('islandBar');
+
+    let closeTimer = null;
+
+    function openIsland() {
+      island.classList.add('island-open');
+      clearTimeout(closeTimer);
+    }
+    function closeIsland() {
+      island.classList.remove('island-open');
+    }
+    function scheduleClose() {
+      clearTimeout(closeTimer);
+      closeTimer = setTimeout(() => closeIsland(), 280);
+    }
+
+    // Desktop hover
+    island.addEventListener('mouseenter', () => openIsland());
+    island.addEventListener('mouseleave', () => scheduleClose());
+
+    // Click toggle (mobile + explicit)
+    btnOpen.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (island.classList.contains('island-open')) closeIsland();
+      else openIsland();
+    });
+
+    // Keep open if any input focused
+    document.addEventListener('focusin', (e) => {
+      if (island.contains(e.target)) openIsland();
+    });
+
+    document.addEventListener('click', (e) => {
+      // Click outside closes (mobile)
+      if (!island.contains(e.target)) closeIsland();
+    });
+
+    // =====================
+    // UI helpers
+    // =====================
+    function showToast(message) {
+      const t = document.getElementById('toast');
+      const msg = document.getElementById('toastMsg');
+      msg.innerText = message;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    function copyText(text, msg = "已复制") {
+      if (!text && text !== 0) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(String(text))
+          .then(() => showToast(msg))
+          .catch(() => fallbackCopy(String(text), msg));
+      } else {
+        fallbackCopy(String(text), msg);
+      }
+    }
+    function fallbackCopy(text, msg) {
+      const temp = document.createElement("textarea");
+      temp.value = text;
+      document.body.appendChild(temp);
+      temp.select();
+      document.execCommand("copy");
+      document.body.removeChild(temp);
+      showToast(msg);
+    }
+
+    function setApiChip(status, ok) {
+      const dot = document.getElementById('chipDot');
+      const chip = document.getElementById('chipApi');
+      chip.innerText = status;
+      if (ok === true) {
+        dot.style.background = "rgba(16,185,129,.95)";
+      } else if (ok === false) {
+        dot.style.background = "rgba(244,63,94,.95)";
+      } else {
+        dot.style.background = "rgba(11,18,32,.25)";
+      }
+    }
+
+    function syncRpcChip() {
+      const rpc = document.getElementById('rpcUrl').value.trim();
+      const chip = document.getElementById('chipRpc');
+      try {
+        const u = new URL(rpc);
+        chip.innerText = u.hostname;
+      } catch {
+        chip.innerText = rpc ? rpc.slice(0, 16) + "…" : "—";
+      }
+    }
+
+    function setMarketChip() {
+      const el = document.getElementById('chipMarket');
+      if (selectedMarketIndex === null || !marketsCache[selectedMarketIndex]) {
+        el.innerText = "—";
+        return;
+      }
+      const title = marketsCache[selectedMarketIndex].question || "Selected";
+      el.innerText = title.length > 18 ? title.slice(0, 18) + "…" : title;
+    }
+
+    // =====================
+    // Market helpers
+    // =====================
+    function outcomeBadgeClass(name) {
+      const n = String(name).toLowerCase();
+      if (n.includes('yes') || n === '是') return 'badge-yes';
+      if (n.includes('no') || n === '否') return 'badge-no';
+      return '';
+    }
+
+    function truncateTokenId(tokenId, head = 10, tail = 8) {
+      const safe = String(tokenId);
+      if (safe.length <= head + tail) return safe;
+      return `${safe.slice(0, head)}…${safe.slice(-tail)}`;
+    }
+
+    function normalizeMarket(market) {
+      let outcomes = [];
+      let clobTokenIds = [];
+      try {
+        outcomes = typeof market.outcomes === 'string' ? JSON.parse(market.outcomes) : (market.outcomes || []);
+        clobTokenIds = typeof market.clobTokenIds === 'string' ? JSON.parse(market.clobTokenIds) : (market.clobTokenIds || []);
+      } catch (_) {
+        outcomes = [];
+        clobTokenIds = [];
+      }
+
+      const tokenIds = (clobTokenIds || []).map((id) => String(id));
+      const oc = (outcomes || []).map((x) => String(x));
+      const normalizedOutcomes = tokenIds.map((_, idx) => oc[idx] || `Outcome ${idx + 1}`);
+
+      return {
+        question: market.question || '未知市场',
+        outcomes: normalizedOutcomes,
+        tokenIds,
+        marketId: market.id || ''
+      };
+    }
+
+    function renderMarketsList() {
+      const container = document.getElementById('marketsContainer');
+      const countEl = document.getElementById('marketCount');
+      const q = (document.getElementById('marketSearch').value || '').trim().toLowerCase();
+
+      if (!marketsCache.length) {
+        container.innerHTML = `<div class="text-center text-[12px] text-[rgba(11,18,32,.45)] py-8">先解析事件</div>`;
+        countEl.innerText = '0';
+        return;
+      }
+
+      const items = marketsCache
+        .map((m, i) => ({ m, i }))
+        .filter(({ m }) => !q || (m.question || '').toLowerCase().includes(q));
+
+      countEl.innerText = String(items.length);
+
+      if (!items.length) {
+        container.innerHTML = `<div class="text-center text-[12px] text-[rgba(11,18,32,.45)] py-8">没有匹配的市场</div>`;
+        return;
+      }
+
+      container.innerHTML = items.map(({ m, i }) => {
+        const disabled = marketLocked && selectedMarketIndex !== i;
+        const selected = selectedMarketIndex === i;
+        return `
+          <div class="mitem ${selected ? 'selected' : ''} ${disabled ? 'disabled' : ''} rounded-2xl px-3 py-3 flex items-start gap-3"
+               onclick="selectMarket(${i})">
+            <div class="mt-0.5 w-8 h-8 rounded-2xl flex items-center justify-center shrink-0"
+                 style="border:1px solid rgba(230,235,242,.95); background: rgba(11,18,32,.04);">
+              <span class="text-[11px] font-semibold text-[rgba(11,18,32,.72)]">${selected ? '✓' : (i + 1)}</span>
+            </div>
+
+            <div class="min-w-0 flex-1">
+              <div class="text-[12px] font-semibold text-[rgba(11,18,32,.82)] line-clamp-2">${m.question}</div>
+              <div class="mt-1 text-[11px] text-[rgba(11,18,32,.55)] flex items-center gap-2 flex-wrap">
+                <span class="badge rounded-full px-2 py-0.5 text-[10px] font-semibold text-[rgba(11,18,32,.60)]">${m.outcomes.length} options</span>
+                ${m.marketId ? `<span class="badge rounded-full px-2 py-0.5 text-[10px] font-semibold text-[rgba(11,18,32,.60)] font-mono">ID:${String(m.marketId).slice(0,8)}…</span>` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function updateTokenMiniPanel() {
+      const panel = document.getElementById('tokenMiniPanel');
+      const list = document.getElementById('tokenMiniList');
+
+      if (selectedMarketIndex === null || !marketsCache[selectedMarketIndex]) {
+        panel.classList.add('hidden');
+        list.innerHTML = '';
+        return;
+      }
+
+      const m = marketsCache[selectedMarketIndex];
+      const lines = m.outcomes.map((name, i) => {
+        const tokenId = m.tokenIds[i] || 'N/A';
+        const badge = outcomeBadgeClass(name);
+        return `
+          <div class="flex items-center justify-between gap-2 rounded-xl border border-[rgba(230,235,242,.95)] bg-white/70 px-3 py-2">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="badge ${badge} rounded-full px-2 py-0.5 text-[10px] font-semibold">${name}</span>
+                <span class="text-[11px] font-mono text-[rgba(11,18,32,.58)] truncate" title="${tokenId}">${truncateTokenId(tokenId)}</span>
+              </div>
+              <div class="mt-1 text-[10px] font-mono text-[rgba(11,18,32,.35)] select-all">${tokenId}</div>
+            </div>
+            <button class="btn btn-ghost rounded-xl px-3 py-2 text-[11px] font-semibold"
+                    onclick="event.stopPropagation(); copyText('${tokenId}', 'Token ID 已复制')">
+              复制
+            </button>
+          </div>
+        `;
+      }).join('');
+
+      list.innerHTML = lines || `<div class="text-[12px] text-[rgba(11,18,32,.45)] py-2">无 Token IDs</div>`;
+      panel.classList.remove('hidden');
+    }
+
+    function selectMarket(index) {
+      if (marketLocked && selectedMarketIndex !== index) return;
+      selectedMarketIndex = index;
+      marketLocked = true;
+
+      // Clear results
+      document.getElementById('balanceResults').innerHTML = '';
+      document.getElementById('resultsArea').classList.add('hidden');
+      document.getElementById('balanceError').classList.add('hidden');
+      latestReport = null;
+
+      renderMarketsList();
+      updateTokenMiniPanel();
+      refreshPairsHint();
+      setMarketChip();
+      enableBalanceButtons();
+      showToast('市场已锁定');
+
+      // Auto-collapse island for simplicity after selection (desktop)
+      scheduleClose();
+    }
+
+    function resetSelection() {
+      selectedMarketIndex = null;
+      marketLocked = false;
+      latestReport = null;
+
+      document.getElementById('balanceResults').innerHTML = '';
+      document.getElementById('resultsArea').classList.add('hidden');
+      document.getElementById('balanceError').classList.add('hidden');
+
+      renderMarketsList();
+      updateTokenMiniPanel();
+      refreshPairsHint();
+      setMarketChip();
+      enableBalanceButtons();
+      showToast('已解除市场锁定');
+    }
+
+    function copySelectedTokensAll() {
+      if (selectedMarketIndex === null || !marketsCache[selectedMarketIndex]) {
+        showToast('未选择市场');
+        return;
+      }
+      const m = marketsCache[selectedMarketIndex];
+      const lines = m.outcomes.map((name, i) => `${name}\t${m.tokenIds[i] || 'N/A'}`);
+      copyText(lines.join('\n'), '已复制全部 TokenIDs');
+    }
+
+    function enableBalanceButtons() {
+      const ok = (selectedMarketIndex !== null && marketsCache[selectedMarketIndex] && marketsCache[selectedMarketIndex].tokenIds.length);
+      document.getElementById('balanceBtnTop').disabled = !ok;
+      document.getElementById('balanceBtnSide').disabled = !ok;
+    }
+
+    // =====================
+    // Addresses utilities
+    // =====================
+    function getAddressLines() {
+      const raw = document.getElementById('addressList').value || '';
+      return raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    }
+
+    function refreshAddressStats() {
+      const lines = getAddressLines();
+      const uniq = Array.from(new Set(lines.map(x => x.toLowerCase())));
+      document.getElementById('addrCountIn').innerText = String(lines.length);
+      document.getElementById('addrCountUniq').innerText = String(uniq.length);
+      refreshPairsHint();
+    }
+
+    function setAddressLines(lines) {
+      document.getElementById('addressList').value = lines.join('\n');
+      refreshAddressStats();
+    }
+
+    function dedupeAddresses() {
+      const lines = getAddressLines();
+      const seen = new Set();
+      const out = [];
+      for (const a of lines) {
+        const k = a.toLowerCase();
+        if (!seen.has(k)) { seen.add(k); out.push(a); }
+      }
+      setAddressLines(out);
+      showToast('已去重');
+    }
+
+    function trimAddresses() {
+      setAddressLines(getAddressLines());
+      showToast('已清理');
+    }
+
+    function clearAddresses() {
+      document.getElementById('addressList').value = '';
+      refreshAddressStats();
+      showToast('已清空');
+    }
+
+    function refreshPairsHint() {
+      const pairsEl = document.getElementById('pairsHint');
+      const batchEl = document.getElementById('batchHint');
+
+      const addr = Array.from(new Set(getAddressLines().map(x => x.toLowerCase()))).length;
+      const tokenN = (selectedMarketIndex !== null && marketsCache[selectedMarketIndex]) ? (marketsCache[selectedMarketIndex].tokenIds.length || 0) : 0;
+
+      if (!addr || !tokenN) {
+        pairsEl.innerText = '—';
+        batchEl.innerText = '';
+        return;
+      }
+
+      const pairs = addr * tokenN;
+      pairsEl.innerText = String(pairs);
+
+      // estimate batches
+      const perCallAddr = Math.max(1, Math.floor(MAX_PAIRS / tokenN));
+      const batches = Math.ceil(addr / perCallAddr);
+      batchEl.innerText = batches > 1 ? `（将分 ${batches} 次调用）` : '';
+    }
+
+    // =====================
+    // Diagnostics
+    // =====================
+    function buildDiagnostics(errMsg = '') {
+      const url = document.getElementById('eventUrl').value.trim();
+      const rpc = document.getElementById('rpcUrl').value.trim();
+      const ctf = document.getElementById('ctfAddress').value.trim();
+      const addrCount = Array.from(new Set(getAddressLines().map(x => x.toLowerCase()))).length;
+      const tokenN = (selectedMarketIndex !== null && marketsCache[selectedMarketIndex]) ? (marketsCache[selectedMarketIndex].tokenIds.length || 0) : 0;
+
+      return [
+        `time: ${new Date().toISOString()}`,
+        `worker: ${WORKER_PROXY}`,
+        `eventUrl: ${url || '-'}`,
+        `rpc: ${rpc || '-'}`,
+        `ctf: ${ctf || '-'}`,
+        `selectedMarketIndex: ${selectedMarketIndex === null ? '-' : selectedMarketIndex}`,
+        `addrUnique: ${addrCount}`,
+        `tokenCount: ${tokenN}`,
+        `pairs: ${addrCount * tokenN}`,
+        `error: ${errMsg || '-'}`
+      ].join('\n');
+    }
+
+    function copyDiagnostics() {
+      const msg = document.getElementById('errorText').innerText || '';
+      copyText(buildDiagnostics(msg), '诊断信息已复制');
+    }
+
+    // =====================
+    // Fetch: Gamma via Worker + fallbacks
+    // =====================
+    async function fetchJsonViaProxy(targetUrl, statusCallback) {
+      const proxies = [
+        { name: "MyWorker", urlGen: (u) => `${WORKER_PROXY}?url=${encodeURIComponent(u)}&t=${Date.now()}` },
+        { name: "AllOrigins", urlGen: (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}&t=${Date.now()}` },
+        { name: "CorsProxy", urlGen: (u) => `https://corsproxy.io/?${encodeURIComponent(u)}` },
+      ];
+
+      let lastErr = null;
+
+      for (const p of proxies) {
+        statusCallback?.(`通过 ${p.name} 请求中…`);
+        try {
+          const resp = await fetch(p.urlGen(targetUrl), { method: "GET", cache: "no-store", headers: { "Accept": "application/json" } });
+          const text = await resp.text();
+          if (!resp.ok) throw new Error(`${p.name} HTTP ${resp.status}: ${text.slice(0, 160)}`);
+          return JSON.parse(text);
+        } catch (e) {
+          lastErr = e;
+        }
+      }
+      throw new Error(`无法连接 API。最后错误: ${lastErr?.message || '未知错误'}`);
+    }
+
+    // =====================
+    // Step: Parse event
+    // =====================
+    function collapseEventRow() {
+      const row = document.getElementById('eventRow');
+      // gentle: keep visible on mobile by toggling with class
+      if (row.classList.contains('hidden')) row.classList.remove('hidden');
+      else row.classList.add('hidden');
+    }
+
+    async function fetchData() {
+      const urlInput = document.getElementById('eventUrl');
+      const errorBox = document.getElementById('errorMsg');
+      const errorText = document.getElementById('errorText');
+      const loader = document.getElementById('loader');
+      const loaderText = document.getElementById('loaderText');
+      const searchBtn = document.getElementById('searchBtn');
+
+      errorBox.classList.add('hidden');
+      errorText.innerText = '';
+      loader.classList.add('hidden');
+
+      // reset
+      marketsCache = [];
+      selectedMarketIndex = null;
+      marketLocked = false;
+      latestReport = null;
+
+      renderMarketsList();
+      updateTokenMiniPanel();
+      setMarketChip();
+      enableBalanceButtons();
+
+      document.getElementById('balanceResults').innerHTML = '';
+      document.getElementById('resultsArea').classList.add('hidden');
+      document.getElementById('balanceError').classList.add('hidden');
+
+      const url = urlInput.value.trim();
+      if (!url) {
+        errorText.innerText = "请输入有效的链接";
+        errorBox.classList.remove('hidden');
+        return;
+      }
+
+      let slug = "";
+      try {
+        const urlObj = new URL(url);
+        const segments = urlObj.pathname.split('/').filter(Boolean);
+        const eventIndex = segments.indexOf('event');
+        if (eventIndex === -1 || eventIndex + 1 >= segments.length) {
+          throw new Error("链接中未找到 '/event/' 路径");
+        }
+        slug = segments[eventIndex + 1];
+      } catch (_) {
+        errorText.innerText = "URL 格式错误，请确保是 Polymarket 事件链接";
+        errorBox.classList.remove('hidden');
+        return;
+      }
+
+      loader.classList.remove('hidden');
+      searchBtn.disabled = true;
+      searchBtn.classList.add('opacity-70');
+
+      setApiChip('Loading', null);
+
+      try {
+        const targetUrl = `https://gamma-api.polymarket.com/events?slug=${slug}`;
+        const data = await fetchJsonViaProxy(targetUrl, (msg) => { loaderText.innerText = msg; });
+
+        if (!data || !data.length) throw new Error("未找到该事件的数据，请检查链接是否有效。");
+
+        const eventData = data[0];
+
+        // event mini
+        document.getElementById('eventMini').classList.remove('hidden');
+        document.getElementById('eventTitleMini').innerText = eventData.title || 'Untitled';
+        document.getElementById('eventIdMini').innerText = eventData.id ?? '—';
+
+        // markets
+        marketsCache = (eventData.markets || []).map(normalizeMarket);
+        renderMarketsList();
+
+        setApiChip('OK', true);
+        showToast('事件已解析');
+
+        // auto focus market search
+        setTimeout(() => document.getElementById('marketSearch').focus(), 50);
+
+      } catch (err) {
+        const msg = String(err?.message || '未知错误');
+        let human = msg;
+
+        if (msg.includes('Failed to fetch')) {
+          human = "网络请求失败。请检查是否开启广告拦截器，或更换网络环境。";
+        } else if (msg.includes('Host not allowed') || msg.includes('not allowed')) {
+          human = "代理服务器拒绝该请求（Host not allowed）。请检查 Worker 是否放行 gamma-api.polymarket.com。";
+        } else if (msg.includes('HTTP 403')) {
+          human = "请求被拦截（403）。通常是代理侧风控/限流；建议优先使用你的 Worker。";
+        }
+
+        errorText.innerText = human;
+        errorBox.classList.remove('hidden');
+        setApiChip('Fail', false);
+      } finally {
+        loader.classList.add('hidden');
+        searchBtn.disabled = false;
+        searchBtn.classList.remove('opacity-70');
+        refreshPairsHint();
+      }
+    }
+
+    // =====================
+    // Chain balances
+    // =====================
+    function formatUnitsReadable(value) {
+      const raw = ethers.utils.formatUnits(value, DECIMALS);
+      if (!raw.includes('.')) return raw;
+      return raw.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '');
+    }
+
+    function csvEscape(value) {
+      const safe = String(value);
+      if (safe.includes(',') || safe.includes('"') || safe.includes('\n')) {
+        return '"' + safe.replace(/"/g, '""') + '"';
+      }
+      return safe;
+    }
+
+    function buildCsv(report) {
+      const header = ['Address', ...report.outcomes].map(csvEscape).join(',');
+      const rows = report.addresses.map((addr, addrIdx) => {
+        const start = addrIdx * report.outcomes.length;
+        const cells = report.outcomes.map((_, tokenIdx) => {
+          const balance = report.balances[start + tokenIdx];
+          return csvEscape(formatUnitsReadable(balance));
+        });
+        return [csvEscape(addr), ...cells].join(',');
+      });
+      return [header, ...rows].join('\n');
+    }
+
+    function buildSummaryText(report) {
+      const lines = [];
+      lines.push(`市场: ${report.market.question}`);
+      lines.push(`地址数量: ${report.addresses.length}`);
+      lines.push(`总 Token: ${formatUnitsReadable(report.totalAll)}`);
+      report.outcomes.forEach((name, idx) => {
+        const tokenId = report.tokenIds[idx] || 'N/A';
+        const total = formatUnitsReadable(report.totals[idx]);
+        const holders = report.holders[idx];
+        lines.push(`${name} | Token ID: ${tokenId} | 总量: ${total} | 持有人数: ${holders}`);
+      });
+      return lines.join('\n');
+    }
+
+    function copySummary() { if (latestReport) copyText(buildSummaryText(latestReport), '已复制汇总'); }
+    function copyDetailsCsv() { if (latestReport) copyText(buildCsv(latestReport), '已复制表格'); }
+
+    function downloadCsv() {
+      if (!latestReport) return;
+      const csv = buildCsv(latestReport);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const safeName = latestReport.market.question.replace(/[^a-z0-9\-_]+/gi, '_').slice(0, 60) || 'market';
+      link.href = url;
+      link.download = `polymarket_${safeName}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    function renderBalanceResults(report) {
+      const host = document.getElementById('balanceResults');
+
+      const pills = report.outcomes.map((name, idx) => {
+        const badge = outcomeBadgeClass(name);
+        const tokenId = report.tokenIds[idx] || 'N/A';
+        return `
+          <span class="badge ${badge} rounded-full px-3 py-1 text-[11px] font-semibold inline-flex items-center gap-2">
+            <span>${name}</span>
+            <span class="font-mono text-[10px] opacity-70">${truncateTokenId(tokenId)}</span>
+          </span>
+        `;
+      }).join('');
+
+      const summaryCards = report.outcomes.map((name, idx) => {
+        const badge = outcomeBadgeClass(name);
+        const total = formatUnitsReadable(report.totals[idx]);
+        const h = report.holders[idx];
+        const tokenId = report.tokenIds[idx] || 'N/A';
+        return `
+          <div class="rounded-3xl border border-[rgba(230,235,242,.95)] bg-white/70 p-5">
+            <div class="flex items-center justify-between">
+              <span class="badge ${badge} rounded-full px-3 py-1 text-[11px] font-semibold">${name}</span>
+              <button class="btn btn-ghost rounded-xl px-3 py-2 text-[11px] font-semibold" onclick="copyText('${tokenId}','Token ID 已复制')">
+                复制 Token
+              </button>
+            </div>
+            <div class="mt-3 text-[26px] font-semibold font-mono text-[rgba(11,18,32,.86)]">${total}</div>
+            <div class="mt-2 text-[11px] text-[rgba(11,18,32,.55)] flex items-center justify-between gap-2">
+              <span><i class="fa-solid fa-users mr-1 opacity-70"></i>${h} holders</span>
+              <span class="font-mono opacity-70">${truncateTokenId(tokenId, 10, 8)}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      const headerCells = report.outcomes.map((name, idx) => {
+        const badge = outcomeBadgeClass(name);
+        return `
+          <th class="px-4 py-3 text-right text-[11px] font-semibold text-[rgba(11,18,32,.60)] bg-white/70 border-b border-[rgba(230,235,242,.95)]">
+            <span class="badge ${badge} rounded-full px-3 py-1 text-[10px] font-semibold">${name}</span>
+          </th>
+        `;
+      }).join('');
+
+      const rows = report.addresses.map((addr, addrIdx) => {
+        const start = addrIdx * report.outcomes.length;
+        const cells = report.outcomes.map((_, tokenIdx) => {
+          const balance = report.balances[start + tokenIdx];
+          const formatted = formatUnitsReadable(balance);
+          const isZero = parseFloat(formatted) === 0;
+          return `<td class="px-4 py-3 text-right text-[12px] font-mono ${isZero ? 'text-[rgba(11,18,32,.26)]' : 'text-[rgba(11,18,32,.78)] font-semibold'}">${formatted}</td>`;
+        }).join('');
+        return `
+          <tr class="border-b border-[rgba(230,235,242,.75)] hover:bg-[rgba(14,165,233,.05)]">
+            <td class="px-4 py-3 text-[11px] font-mono text-[rgba(11,18,32,.55)] bg-white/80 sticky left-0 border-r border-[rgba(230,235,242,.85)]">
+              ${addr}
+            </td>
+            ${cells}
+          </tr>
+        `;
+      }).join('');
+
+      host.innerHTML = `
+        <div class="p-5 sm:p-6">
+          <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+            <div class="min-w-0">
+              <div class="text-[10px] uppercase tracking-[.18em] text-[rgba(11,18,32,.45)]">Results</div>
+              <div class="mt-1 text-[16px] font-semibold text-[rgba(11,18,32,.86)] line-clamp-2">${report.market.question}</div>
+              <div class="mt-3 flex flex-wrap gap-2">${pills}</div>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+              <button onclick="copySummary()" class="btn btn-ghost rounded-xl px-3 py-2 text-[12px] font-semibold">复制汇总</button>
+              <button onclick="copyDetailsCsv()" class="btn btn-ghost rounded-xl px-3 py-2 text-[12px] font-semibold">复制表格</button>
+              <button onclick="downloadCsv()" class="btn btn-mint rounded-xl px-3 py-2 text-[12px] font-semibold">导出 CSV</button>
+            </div>
+          </div>
+
+          <div class="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="rounded-3xl border border-[rgba(230,235,242,.95)] bg-white/70 p-5">
+              <div class="text-[10px] uppercase tracking-[.18em] text-[rgba(11,18,32,.45)]">Addresses</div>
+              <div class="mt-2 text-[26px] font-semibold font-mono text-[rgba(11,18,32,.86)]">${report.addresses.length}</div>
+              <div class="mt-1 text-[11px] text-[rgba(11,18,32,.55)]">unique wallets queried</div>
+            </div>
+
+            <div class="rounded-3xl border border-[rgba(230,235,242,.95)] bg-[rgba(11,18,32,.92)] p-5 text-white">
+              <div class="text-[10px] uppercase tracking-[.18em] text-white/70">Total Tokens</div>
+              <div class="mt-2 text-[26px] font-semibold font-mono">${formatUnitsReadable(report.totalAll)}</div>
+              <div class="mt-1 text-[11px] text-white/70">sum across outcomes</div>
+            </div>
+
+            <div class="rounded-3xl border border-[rgba(230,235,242,.95)] bg-white/70 p-5">
+              <div class="text-[10px] uppercase tracking-[.18em] text-[rgba(11,18,32,.45)]">Pairs</div>
+              <div class="mt-2 text-[26px] font-semibold font-mono text-[rgba(11,18,32,.86)]">${report.addresses.length * report.outcomes.length}</div>
+              <div class="mt-1 text-[11px] text-[rgba(11,18,32,.55)]">addresses × tokens</div>
+            </div>
+          </div>
+
+          <div class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+            ${summaryCards}
+          </div>
+
+          <details class="mt-6 rounded-3xl border border-[rgba(230,235,242,.95)] bg-white/70 overflow-hidden">
+            <summary class="px-4 py-3 flex items-center justify-between border-b border-[rgba(230,235,242,.95)] bg-white/60">
+              <div class="text-[12px] font-semibold text-[rgba(11,18,32,.78)]">查看明细（${report.addresses.length} 地址）</div>
+              <i class="fa-solid fa-chevron-down text-[12px] opacity-60"></i>
+            </summary>
+            <div class="overflow-auto max-h-[620px]">
+              <table class="min-w-full border-collapse">
+                <thead>
+                  <tr>
+                    <th class="px-4 py-3 text-left text-[11px] font-semibold text-[rgba(11,18,32,.60)] bg-white/70 border-b border-[rgba(230,235,242,.95)] sticky top-0 left-0 z-10">
+                      Wallet Address
+                    </th>
+                    ${headerCells}
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rows}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </div>
+      `;
+    }
+
+    async function fetchBalances() {
+      const errEl = document.getElementById('balanceError');
+      const errTxt = document.getElementById('balanceErrorText');
+      const loader = document.getElementById('balanceLoader');
+      const btnTop = document.getElementById('balanceBtnTop');
+      const btnSide = document.getElementById('balanceBtnSide');
+
+      errEl.classList.add('hidden');
+      errTxt.innerText = '';
+      latestReport = null;
+
+      try {
+        if (selectedMarketIndex === null || !marketsCache[selectedMarketIndex]) {
+          throw new Error('请先选择一个市场。');
+        }
+
+        const market = marketsCache[selectedMarketIndex];
+        const tokenIds = market.tokenIds;
+        const outcomes = market.outcomes;
+        if (!tokenIds.length) throw new Error('所选市场没有可用的 Token ID。');
+
+        // addresses (dedupe)
+        const raw = getAddressLines();
+        const seen = new Set();
+        const deduped = [];
+        for (const a of raw) {
+          const k = a.toLowerCase();
+          if (!seen.has(k)) { seen.add(k); deduped.push(a); }
+        }
+        if (!deduped.length) throw new Error('请至少输入一个钱包地址');
+
+        const rpcUrl = document.getElementById('rpcUrl').value.trim();
+        if (!rpcUrl) throw new Error('请填写 Polygon RPC URL。');
+
+        const contractAddress = document.getElementById('ctfAddress').value.trim();
+        if (!contractAddress) throw new Error('请填写 CTF 合约地址。');
+
+        loader.classList.remove('hidden');
+        btnTop.disabled = true; btnSide.disabled = true;
+        btnTop.classList.add('opacity-70'); btnSide.classList.add('opacity-70');
+
+        const checksumAddresses = deduped.map((addr) => {
+          try { return ethers.utils.getAddress(addr); }
+          catch { throw new Error(`无效地址: ${addr}`); }
+        });
+
+        const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+        const iface = new ethers.utils.Interface(ABI);
+
+        const tokensPerAddress = tokenIds.length;
+        const maxAddressesPerCall = Math.max(1, Math.floor(MAX_PAIRS / tokensPerAddress));
+
+        const allBalances = [];
+        for (let i = 0; i < checksumAddresses.length; i += maxAddressesPerCall) {
+          const chunk = checksumAddresses.slice(i, i + maxAddressesPerCall);
+          const accounts = [];
+          const ids = [];
+
+          chunk.forEach((addr) => {
+            tokenIds.forEach((tokenId) => {
+              accounts.push(addr);
+              ids.push(tokenId);
+            });
+          });
+
+          const data = iface.encodeFunctionData('balanceOfBatch', [accounts, ids]);
+          const rawCall = await provider.call({ to: contractAddress, data });
+          const decoded = iface.decodeFunctionResult('balanceOfBatch', rawCall)[0];
+          allBalances.push(...decoded);
+        }
+
+        const totals = tokenIds.map(() => ethers.BigNumber.from(0));
+        const holders = tokenIds.map(() => 0);
+
+        checksumAddresses.forEach((_, addrIdx) => {
+          const start = addrIdx * tokensPerAddress;
+          tokenIds.forEach((_, tokenIdx) => {
+            const balance = allBalances[start + tokenIdx];
+            totals[tokenIdx] = totals[tokenIdx].add(balance);
+            if (balance.gt(0)) holders[tokenIdx] += 1;
+          });
+        });
+
+        const totalAll = totals.reduce((acc, value) => acc.add(value), ethers.BigNumber.from(0));
+
+        latestReport = {
+          market,
+          addresses: checksumAddresses,
+          outcomes,
+          tokenIds,
+          balances: allBalances,
+          totals,
+          holders,
+          totalAll
+        };
+
+        document.getElementById('resultsArea').classList.remove('hidden');
+        renderBalanceResults(latestReport);
+        showToast('查询完成');
+
+        // gently close island to keep page clean
+        scheduleClose();
+
+      } catch (e) {
+        errTxt.innerText = e.message || '未知错误';
+        errEl.classList.remove('hidden');
+      } finally {
+        loader.classList.add('hidden');
+        enableBalanceButtons();
+        btnTop.classList.remove('opacity-70'); btnSide.classList.remove('opacity-70');
+      }
+    }
+
+    // =====================
+    // Init
+    // =====================
+    syncRpcChip();
+    refreshAddressStats();
+    setApiChip('—', null);
+    setMarketChip();
+    enableBalanceButtons();
+  </script>
+</body>
+</html>
